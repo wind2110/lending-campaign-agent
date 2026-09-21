@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Khoa bi mat va cau hinh rieng cua may/moi truong - TUYET DOI khong dua len Git
+.env
+.greennode.json
+.agentbase/
+.agentbase-state.json
+*.credentials.json
+iam-credentials.json
+sheets-credentials.json
+local.db
+
+# Cong cu/IDE cua may ca nhan (chua duong dan tren may)
+.claude/
+
+# File sinh ra khi chay - tao lai duoc, khong luu vao repo
+data/latest_dashboard.html
+data/latest_insight.json
+data/preview_*.html
+data/google_sheet_cache.xlsx
+
+# Ban sao luu/ban tam cua file Excel
+data/*.before_*.xlsx
+data/*_v2*.xlsx
+~$*
+*.tmp
+
+# He dieu hanh
+.DS_Store
+Thumbs.db
+
+# File mau cu (dinh dang funnel_daily) khong con khop code hien tai
+data/funnel_mock.xlsx

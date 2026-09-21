@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Campaign Lending - {{ as_of_date }}</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #0b1728; --muted: #64748b; --soft: #f2f6fa; --line: #dfe7ef; --surface: #ffffff;
+    --page: #eef3f8;
+    --navy: #071524; --navy2: #0c2137;
+    --teal: #12b8a6; --teal2: #0f766e;
+    --blue: #2563eb; --green: #0f9f6e; --amber: #d97706; --red: #dc4c4c; --violet: #7c3aed; --cyan: #0891b2;
+    --shadow: 0 8px 26px rgba(15,32,52,.07);
+    --radius: 18px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --ink: #e6edf3; --muted: #94a3b8; --soft: #101d2c; --line: #1f3345; --surface: #101d2c;
+      --page: #0a1420;
+      --navy: #050d16; --navy2: #081726;
+      --teal: #2dd4bf; --teal2: #14b8a6;
+      --blue: #3b82f6; --green: #34d399; --amber: #f59e0b; --red: #f87171; --violet: #a78bfa; --cyan: #22d3ee;
+      --shadow: 0 8px 26px rgba(0,0,0,.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 Inter, "Segoe UI", Arial, sans-serif; }
+  button { font: inherit; }
+  .shell { max-width: 1280px; margin: auto; min-height: 100vh; }
+
+  /* Topbar */
+  .topbar { background: linear-gradient(118deg, var(--navy), #102b46 70%, #0c3547); color: #fff; padding: 20px 26px 22px; position: relative; overflow: hidden; }
+  .topbar:after { content: ""; position: absolute; width: 420px; height: 420px; border: 1px solid rgba(45,212,191,.2); border-radius: 50%; right: -170px; top: -270px; box-shadow: 0 0 0 55px rgba(45,212,191,.035), 0 0 0 110px rgba(45,212,191,.025); }
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 18px; position: relative; z-index: 1; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brandmark { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, #2dd4bf, #0ea5e9); display: grid; place-items: center; box-shadow: 0 8px 20px rgba(45,212,191,.22); flex: none; }
+  .brandmark svg { width: 21px; height: 21px; }
+  .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #9fb3c8; font-weight: 700; }
+  h1 { font-size: 20px; line-height: 1.15; margin: 3px 0 0; font-weight: 750; letter-spacing: -.02em; }
+  .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .meta-pill { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.07); border-radius: 999px; padding: 7px 12px; font-size: 12.5px; color: #dbe7f2; }
+  .meta-pill strong { color: #fff; }
+  .tabbar { position: relative; z-index: 1; display: flex; gap: 6px; margin-top: 16px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 4px; width: max-content; }
+  .tab-btn { appearance: none; border: 0; background: transparent; color: #b9c9d8; cursor: pointer; padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 700; }
+  .tab-btn.active { background: #fff; color: var(--navy2); }
+  .chip-row { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: #dbe7f2; }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .chip .dot.critical { background: var(--red); } .chip.critical { color: #ffd0cb; }
+  .chip .dot.warning { background: var(--amber); } .chip.warning { color: #ffe3b0; }
+  .chip .dot.normal { background: var(--green); } .chip.normal { color: #c9f3e2; }
+
+  main { padding: 22px 26px 40px; }
+
+  /* KPI headline grid */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 14px; }
+  .kpi-deltas { display: flex; flex-wrap: wrap; gap: 4px; }
+  .kpi-sub { color: var(--muted); font-size: 10.5px; margin-top: 7px; line-height: 1.35; }
+  .contrib-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .contrib-sub { font-size: 11px; color: var(--muted); }
+  .contrib-sub.neg { color: #c26015; }
+  tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 17px 18px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+  .kpi:before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent, var(--teal)); }
+  .kpi-title { color: var(--muted); font-size: 12.5px; font-weight: 700; }
+  .kpi-value { font-size: 25px; font-weight: 780; letter-spacing: -.03em; margin: 8px 0 7px; white-space: nowrap; }
+  .kpi-value small { font-size: 12px; color: var(--muted); font-weight: 650; letter-spacing: 0; }
+  .delta { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 3px 6px; background: #eef8f5; color: var(--green); display: inline-block; white-space: nowrap; }
+  .delta.down { background: #fff4ed; color: #c26015; }
+  .delta.neutral { background: var(--soft); color: var(--muted); }
+  @media (prefers-color-scheme: dark) { .delta { background: rgba(52,211,153,.12); } .delta.down { background: rgba(245,158,11,.14); } }
+
+  .kpi-note { color: var(--muted); font-size: 11.5px; margin: 4px 0 14px; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-top: 14px; }
+  .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .panel h2 { font-size: 16px; margin: 0; display: flex; align-items: center; gap: 9px; letter-spacing: -.01em; }
+  .panel h2 .step-no { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 7px; background: var(--soft); color: var(--muted); font-size: 12px; font-weight: 800; flex: none; }
+  .panel .sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  p.body-text { color: var(--ink); line-height: 1.6; font-size: 14px; margin: 0 0 8px; }
+  .muted { color: var(--muted); font-size: 13px; }
+
+  .chart-box { position: relative; height: 280px; margin-top: 8px; }
+  .chart-box.funnel { height: 250px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  .table-scroll { overflow-x: auto; margin-top: 8px; }
+  .table-scroll table { margin-top: 0; min-width: 480px; }
+
+  .signal { font-size: 10.5px; font-weight: 800; padding: 4px 8px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+  .signal.critical { background: #fdecea; color: #b3271e; }
+  .signal.warning { background: #fff6e6; color: #a45c00; }
+  @media (prefers-color-scheme: dark) { .signal.critical { background: rgba(248,113,113,.15); color: #ffb4ac; } .signal.warning { background: rgba(245,158,11,.15); color: #ffd889; } }
+  .signal.cao { background: #fdecea; color: #b3271e; }
+  .signal.trung_binh { background: #fff6e6; color: #a45c00; }
+  .signal.thap { background: var(--soft); color: var(--muted); }
+  @media (prefers-color-scheme: dark) { .signal.cao { background: rgba(248,113,113,.15); color: #ffb4ac; } .signal.trung_binh { background: rgba(245,158,11,.15); color: #ffd889; } }
+  .team-tag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+
+  .filter-block { background: var(--soft); border: 1px solid var(--line); border-radius: 13px; padding: 12px 14px; margin-bottom: 16px; }
+  .filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .filter-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .filter-pill { appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+  .filter-pill.active { background: var(--teal2); border-color: var(--teal2); color: #fff; }
+
+  .kpi-charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 12px; }
+  .kpi-chart-card { border: 1px solid var(--line); border-radius: 13px; padding: 12px 14px 8px; background: var(--soft); }
+  .kpi-chart-card .kpi-chart-title { font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+  .stage-tag { font-size: 10.5px; font-weight: 800; color: var(--teal2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .kpi-chart-card .chart-box { height: 190px; margin-top: 4px; }
+  .kpi-charts-empty { color: var(--muted); font-size: 13px; margin-top: 10px; }
+
+  .sub-heading { font-size: 13px; margin: 22px 0 4px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+  .bottleneck-item { border-left: 3px solid var(--line); padding: 10px 14px; margin-bottom: 8px; border-radius: 0 12px 12px 0; background: var(--soft); }
+  .bottleneck-item.critical { border-left-color: var(--red); }
+  .bottleneck-item.warning { border-left-color: var(--amber); }
+  .bottleneck-item strong { font-size: 13.5px; }
+
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .summary-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+  .summary-col h4 { font-size: 11.5px; margin: 0 0 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .insight-list { display: grid; gap: 9px; }
+  .insight { display: grid; grid-template-columns: 30px 1fr; gap: 10px; border: 1px solid var(--line); border-radius: 13px; padding: 10px 12px; background: var(--soft); }
+  .insight-num { width: 26px; height: 26px; border-radius: 9px; display: grid; place-items: center; background: rgba(18,184,166,.12); color: var(--teal2); font-size: 11.5px; font-weight: 800; flex: none; }
+  @media (prefers-color-scheme: dark) { .insight-num { color: var(--teal); } }
+  .insight strong { font-size: 12.5px; }
+  .insight p { font-size: 12px; color: var(--muted); margin: 3px 0 0; }
+  .summary-empty { color: var(--muted); font-size: 13px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .two-col { grid-template-columns: 1fr; } }
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 8px; }
+  .stat-tile { background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .stat-tile .stat-value { font-size: 19px; font-weight: 750; font-variant-numeric: tabular-nums; }
+  .stat-tile .stat-label { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  .team-card { background: var(--soft); border: 1px solid var(--line); border-radius: 13px; padding: 14px 16px; }
+  .team-card h3 { font-size: 12.5px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  ul.bullet-list { list-style: none; margin: 0; padding: 0; }
+  ul.bullet-list li { display: flex; align-items: start; gap: 8px; padding: 6px 0; font-size: 13.5px; line-height: 1.5; }
+  ul.bullet-list li::before { content: "•"; color: var(--teal2); font-weight: 700; flex: none; }
+
+  .action-table td { vertical-align: top; }
+  .action-table .channel { font-weight: 750; }
+
+  footer.note { margin-top: 26px; color: var(--muted); font-size: 11.5px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="nav">
+      <div class="brand">
+        <div class="brandmark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V13h4v6m2 0V8h4v11m2 0V4h4v15" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+        <div><div class="eyebrow">Executive Dashboard</div><h1>Dashboard phân tích Campaign Lending</h1></div>
+      </div>
+      <div class="meta">
+        <div class="meta-pill">Ngày báo cáo <strong>{{ as_of_date }}</strong></div>
+        <div class="meta-pill">So sánh <strong>TB 7 ngày gần nhất</strong></div>
+      </div>
+    </div>
+    <div class="tabbar" id="tabBar">
+      {% for label in tab_labels %}
+      <button class="tab-btn{{ ' active' if loop.first else '' }}" data-tab="{{ label }}">{{ label }}</button>
+      {% endfor %}
+    </div>
+    <div class="chip-row" id="chipRow"></div>
+  </header>
+
+  <main>
+    <div class="filter-block" style="margin-bottom:12px;">
+      <div class="muted">Lọc kênh cho các chỉ số điều hành bên dưới (chọn được nhiều kênh):</div>
+      <div id="cardChannelFilter" class="filter-pills" style="margin-top:8px;"></div>
+    </div>
+    <section class="kpi-grid" id="kpiGrid" aria-label="Chỉ số điều hành chính"></section>
+    <p class="kpi-note">Bộ lọc kênh phía trên chỉ áp dụng cho các thẻ chỉ số này · So sánh với hôm qua và trung bình 7 ngày gần nhất · Agent chỉ phân tích &amp; đề xuất — con người quyết định hành động</p>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2 id="summaryTitle">Tóm tắt nhanh</h2></div></div>
+      <div class="summary-grid">
+        <div class="summary-col">
+          <h4>Vấn đề đáng chú ý nhất</h4>
+          <div class="insight-list" id="summaryIssues"></div>
+        </div>
+        <div class="summary-col">
+          <h4>Đề xuất ưu tiên cao</h4>
+          <div class="insight-list" id="summarySuggestions"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="step-no">1</span>Tổng quan</h2>
+      <p class="body-text" id="overviewText"></p>
+      <div id="contribBox" hidden>
+        <h3 class="sub-heading">Đóng góp của từng kênh vào phần tăng/giảm so với TB 7 ngày</h3>
+        <div class="table-scroll"><table>
+          <thead id="contribHead"></thead>
+          <tbody id="contribBody"></tbody>
+        </table></div>
+        <p class="muted" id="contribNote"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="step-no">2</span>Hành trình khách hàng</h2>
+      <p class="muted" id="funnelCaption"></p>
+      <div class="chart-box funnel"><canvas id="funnelChart"></canvas></div>
+      <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>Kênh</th>
+          <th class="num">Rớt: Tiếp cận→Đăng ký</th>
+          <th class="num">Rớt: Đăng ký→Duyệt</th>
+        </tr></thead>
+        <tbody id="funnelTableBody"></tbody>
+      </table>
+      </div>
+
+      <div id="journeyStatsBox" hidden>
+        <p class="muted" id="journeyCaption" style="margin-top:16px;"></p>
+        <div class="stat-row" id="journeyStatRow"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="step-no">3</span>Điểm nghẽn</h2>
+      <p class="muted">Mỗi biểu đồ là 1 KPI đang có cảnh báo hôm nay (riêng Doanh số giải ngân luôn hiển thị), mỗi đường là 1 kênh, theo dõi 30 ngày gần nhất.</p>
+
+      <div class="filter-block">
+        <div class="filter-row">
+          <span class="muted" style="margin-right:2px;">Lọc kênh (áp dụng cho Hành trình khách hàng &amp; Điểm nghẽn, chọn được nhiều kênh):</span>
+        </div>
+        <div id="channelFilter" class="filter-pills" style="margin-top:8px;"></div>
+      </div>
+
+      <div id="kpiChartsGrid" class="kpi-charts-grid"></div>
+
+      <h3 class="sub-heading">Diễn giải điểm nghẽn</h3>
+      <div id="bottleneckList"></div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="step-no">4</span>Hiệu quả chi phí</h2>
+      <p class="muted" style="margin-top:-4px;">Số liệu toàn bộ các kênh (không áp dụng bộ lọc kênh ở Mục 3).</p>
+      <p class="body-text" id="costText"></p>
+      <p class="muted">CPL / CPA theo kênh:</p>
+      <div class="chart-box"><canvas id="costChart"></canvas></div>
+      <p class="muted" style="margin-top:16px;">So sánh chi phí với doanh số giải ngân theo kênh (đơn vị lệch nhau nhiều nên trình bày dạng bảng thay vì biểu đồ, tránh cột chi phí bị "biến mất" cạnh cột doanh số):</p>
+      <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>Kênh</th><th class="num">Doanh số giải ngân</th><th class="num">Chi phí lead</th><th class="num">Tỷ lệ doanh số/chi phí</th>
+        </tr></thead>
+        <tbody id="costRevenueTableBody"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="step-no">5</span>Insight theo team</h2>
+      <div class="two-col">
+        <div class="team-card">
+          <h3>Marketing</h3>
+          <ul class="bullet-list" id="insightMarketing"></ul>
+        </div>
+        <div class="team-card">
+          <h3>Sale</h3>
+          <ul class="bullet-list" id="insightSale"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="step-no">6</span>Đề xuất hành động</h2>
+      <div class="table-scroll">
+      <table class="action-table">
+        <thead><tr><th>Ưu tiên</th><th>Team</th><th>Nội dung</th></tr></thead>
+        <tbody id="suggestionsList"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <footer class="note">AI Agent chỉ phân tích và đề xuất — mọi hành động do con người quyết định và thực thi.</footer>
+  </main>
+</div>
+
+<script id="dashboard-data" type="application/json">{{ context_json | safe }}</script>
+<script>
+const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
+
+const CSS_ROOT = getComputedStyle(document.documentElement);
+const textSecondary = CSS_ROOT.getPropertyValue('--muted').trim();
+const gridline = CSS_ROOT.getPropertyValue('--line').trim();
+
+// Ramp sequential (thu tu buoc funnel), nhat -> dam, theo mau teal thuong hieu moi
+const FUNNEL_RAMP = ['#c7f3ec', '#8de6d8', '#4dd0bd', '#12b8a6', '#0a6e63'];
+const FUNNEL_TEXT_DARK_UPTO = 1;
+// Mau categorical co dinh theo thu tu kenh xuat hien (khong doi theo sort/filter)
+const CATEGORICAL = ['#12b8a6', '#2563eb', '#d97706', '#7c5cfa', '#dc4c4c', '#0891b2'];
+
+Chart.defaults.font.family = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif";
+Chart.defaults.color = textSecondary;
+
+function fmtPct(v) { return (v == null ? "-" : Math.round(v * 100) + "%"); }
+function fmtNum(v, d) {
+  if (v == null || isNaN(v)) return "-";
+  const digits = d == null ? 2 : d;
+  return Number(v).toLocaleString('vi-VN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+function fmtInt(v) { return (v == null || isNaN(v)) ? "-" : Math.round(v).toLocaleString('vi-VN'); }
+function fmtVnd(v) { return (v == null || isNaN(v)) ? "-" : Math.round(v).toLocaleString('vi-VN') + " đ"; }
+function fmtDuration(hours) {
+  if (hours == null || isNaN(hours)) return ['-', ''];
+  return hours < 1 ? [fmtNum(hours * 60, 0), 'phút'] : [fmtNum(hours, 1), 'giờ'];
+}
+function fmtMillion(v) { return (v == null || isNaN(v)) ? "-" : fmtNum(v / 1e6, 1); }
+function fmtBigVnd(v) {
+  if (v == null || isNaN(v)) return { value: "-", unit: "" };
+  if (v >= 1e9) return { value: fmtNum(v / 1e9, 2), unit: "tỷ đồng" };
+  return { value: fmtNum(v / 1e6, 1), unit: "triệu đồng" };
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+const PRIORITY_LABEL = { "cao": "Ưu tiên cao", "trung_binh": "Ưu tiên TB", "thap": "Ưu tiên thấp" };
+const LEVEL_LABEL = { critical: 'Cần lưu ý', warning: 'Cần chú ý' };
+
+let funnelChart, costChart;
+
+const funnelLabelPlugin = {
+  id: 'funnelLabelPlugin',
+  afterDatasetsDraw(chart) {
+    const counts = chart.data.datasets[0]._counts;
+    if (!counts) return;
+    const meta = chart.getDatasetMeta(0);
+    const { ctx } = chart;
+    const centerX = chart.scales.x.getPixelForValue(0);
+    ctx.save();
+    ctx.font = 'bold 13px Inter, system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    meta.data.forEach((bar, i) => {
+      ctx.fillStyle = i <= FUNNEL_TEXT_DARK_UPTO ? '#0b1728' : '#ffffff';
+      ctx.fillText(counts[i].toLocaleString('vi-VN'), centerX, bar.y);
+    });
+    ctx.restore();
+  }
+};
+
+function renderChips(view) {
+  document.getElementById('chipRow').innerHTML = view.campaigns_status.map(c =>
+    `<span class="chip ${c.status}"><span class="dot ${c.status}"></span>${esc(c.campaign_name)}${c.worst_kpi_label ? ' · ' + esc(c.worst_kpi_label) : ''}</span>`
+  ).join('');
+}
+
+let cardChannels = new Set(); // rong = "Tat ca" (bo loc RIENG cua khoi the chi so dieu hanh)
+
+function isCardChannelSelected(channel) {
+  return cardChannels.size === 0 || cardChannels.has(channel);
+}
+
+// Cong don so lieu goc cac kenh dang chon theo moc "today" | "prev" (hom qua) | "base7" (TB 7 ngay),
+// roi tinh cac ty le (duyet, gia tri khoan vay TB, CPL) tu TONG - khong lay trung binh cac ty le tung kenh.
+function headlineTotals(view, which) {
+  const rows = view.headline_by_channel.filter(r => isCardChannelSelected(r.campaign_name));
+  if (!rows.length || rows.some(r => !r[which])) return null;
+  const sum = (c) => rows.reduce((s, r) => s + r[which][c], 0);
+  const t = {
+    disbursed_count: sum('disbursed_count'), disbursed_amount: sum('disbursed_amount'),
+    lead_cost: sum('ad_spend'), leads: sum('reach_count'), registered: sum('registered_count'), approved: sum('approved_count'),
+    acq_cost: sum('disbursed_acq_cost'),
+  };
+  t.approval_rate = t.registered > 0 ? t.approved / t.registered : null;
+  t.avg_loan_value = t.disbursed_count > 0 ? t.disbursed_amount / t.disbursed_count : null;
+  t.cpl = t.leads > 0 ? t.lead_cost / t.leads : null;
+  t.cac = t.disbursed_count > 0 ? t.acq_cost / t.disbursed_count : null;
+  return t;
+}
+
+// Quy tắc màu chung cho mọi thẻ: dấu + màu xanh, dấu − màu cam
+function deltaChip(value, baseline, label, { points = false } = {}) {
+  const none = `<span class="delta neutral">${label}: chưa đủ dữ liệu</span>`;
+  if (value == null || baseline == null) return none;
+  const diff = points ? (value - baseline) * 100 : (baseline === 0 ? null : (value - baseline) / baseline * 100);
+  if (diff == null) return none;
+  return `<span class="delta ${diff >= 0 ? '' : 'down'}">${diff >= 0 ? '+' : ''}${fmtNum(diff, 1)}${points ? ' điểm %' : '%'} ${label}</span>`;
+}
+
+function renderHeadlineKpis(view) {
+  const t = headlineTotals(view, 'today'), p = headlineTotals(view, 'prev'), b = headlineTotals(view, 'base7');
+  const at = (o, k) => (o ? o[k] : null);
+  const chips = (key, opts) =>
+    deltaChip(at(t, key), at(p, key), 'vs hôm qua', opts) + deltaChip(at(t, key), at(b, key), 'vs TB 7 ngày', opts);
+  const amount = fmtBigVnd(at(t, 'disbursed_amount'));
+  const cost = fmtBigVnd(at(t, 'lead_cost'));
+  const cards = [
+    {
+      accent: 'var(--teal2)', title: 'Số đơn giải ngân',
+      value: `${fmtInt(at(t, 'disbursed_count'))} <small>khoản</small>`, chips: chips('disbursed_count'),
+    },
+    {
+      accent: 'var(--blue)', title: 'Doanh số giải ngân',
+      value: `${amount.value} <small>${amount.unit}</small>`, chips: chips('disbursed_amount'),
+    },
+    {
+      accent: 'var(--violet)', title: 'Tỷ lệ duyệt đơn',
+      value: `${at(t, 'approval_rate') == null ? '-' : fmtNum(at(t, 'approval_rate') * 100, 1)}<small>%</small>`,
+      chips: chips('approval_rate', { points: true }),
+    },
+    {
+      accent: 'var(--amber)', title: 'Ticket size bình quân',
+      value: `${fmtMillion(at(t, 'avg_loan_value'))} <small>triệu</small>`, chips: chips('avg_loan_value'),
+    },
+    {
+      accent: 'var(--cyan)', title: 'Chỉ số CPL',
+      value: `${fmtInt(at(t, 'cpl'))} <small>đ/lead</small>`, chips: chips('cpl'),
+      sub: `Chi phí lead trong ngày: ${cost.value} ${cost.unit}`,
+    },
+    {
+      accent: 'var(--red)', title: 'CAC',
+      value: `${fmtInt(at(t, 'cac'))} <small>đ/khoản</small>`, chips: chips('cac'),
+      sub: 'Chi phí lead + marketing trên mỗi hồ sơ đã giải ngân',
+    },
+  ];
+  document.getElementById('kpiGrid').innerHTML = cards.map(c => `
+    <article class="kpi" style="--accent:${c.accent}">
+      <div class="kpi-title">${c.title}</div>
+      <div class="kpi-value">${c.value}</div>
+      <div class="kpi-deltas">${c.chips}</div>
+      ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
+    </article>
+  `).join('');
+}
+
+const CONTRIB_UNIT = { disbursed_count: 'khoản', registered_count: 'hồ sơ' };
+const CONTRIB_MONEY = new Set(['disbursed_amount', 'ad_spend']);
+function fmtSignedMoney(v) {
+  const a = Math.abs(v), s = v >= 0 ? '+' : '−';
+  return a >= 1e9 ? `${s}${fmtNum(a / 1e9, 2)} tỷ` : `${s}${fmtNum(a / 1e6, 1)} triệu`;
+}
+function fmtContribValue(col, v) {
+  if (CONTRIB_MONEY.has(col)) return fmtSignedMoney(v);
+  return `${v >= 0 ? '+' : '−'}${fmtNum(Math.abs(v), 1)} ${CONTRIB_UNIT[col] || ''}`.trim();
+}
+
+// Đóng góp của từng kênh vào mức tăng/giảm chung của sản phẩm (đã tính sẵn ở Python)
+function renderContributions(view) {
+  const metrics = view.contributions || [];
+  const box = document.getElementById('contribBox');
+  box.hidden = metrics.length === 0;
+  if (!metrics.length) return;
+  const channels = metrics[0].theo_kenh.map(r => r.campaign_name);
+  document.getElementById('contribHead').innerHTML =
+    `<tr><th>Kênh</th>${metrics.map(m => `<th class="num">${esc(m.label)}</th>`).join('')}</tr>`;
+  const cell = (m, ch) => {
+    const r = m.theo_kenh.find(x => x.campaign_name === ch);
+    if (!r) return '<td class="num">-</td>';
+    const dir = m.tong_thay_doi >= 0 ? 'tăng' : 'giảm';
+    const neg = r.ty_trong_pct != null && r.ty_trong_pct < 0;
+    const sub = r.ty_trong_pct == null ? '' : (neg ? 'ngược chiều' : `${fmtNum(r.ty_trong_pct, 0)}% phần ${dir}`);
+    return `<td class="num"><div class="contrib-val">${fmtContribValue(m.col, r.thay_doi)}</div><div class="contrib-sub${neg ? ' neg' : ''}">${sub}</div></td>`;
+  };
+  const totalCell = (m) => `<td class="num"><div class="contrib-val">${fmtContribValue(m.col, m.tong_thay_doi)}</div>` +
+    `<div class="contrib-sub">${m.tong_thay_doi_pct == null ? '' : (m.tong_thay_doi_pct >= 0 ? '+' : '−') + fmtNum(Math.abs(m.tong_thay_doi_pct), 1) + '% vs TB 7 ngày'}</div></td>`;
+  document.getElementById('contribBody').innerHTML =
+    channels.map(ch => `<tr><td>${esc(ch)}</td>${metrics.map(m => cell(m, ch)).join('')}</tr>`).join('') +
+    `<tr class="total"><td>Toàn sản phẩm</td>${metrics.map(totalCell).join('')}</tr>`;
+  document.getElementById('contribNote').textContent =
+    'Thay đổi của từng kênh = hôm nay trừ trung bình 7 ngày trước đó của chính kênh đó; tỷ trọng = thay đổi của kênh chia tổng thay đổi. Kênh đi ngược chiều xu hướng chung được ghi "ngược chiều".';
+}
+
+function renderCardFilter(view) {
+  const all = view.headline_by_channel.map(r => r.campaign_name);
+  cardChannels = new Set([...cardChannels].filter(c => all.includes(c)));
+  const pills = [`<button class="filter-pill${cardChannels.size === 0 ? ' active' : ''}" data-channel="Tất cả">Tất cả</button>`]
+    .concat(all.map(ch =>
+      `<button class="filter-pill${cardChannels.has(ch) ? ' active' : ''}" data-channel="${esc(ch)}">${esc(ch)}</button>`
+    ));
+  document.getElementById('cardChannelFilter').innerHTML = pills.join('');
+}
+
+function renderSummary(view) {
+  document.getElementById('summaryTitle').textContent = `Tóm tắt nhanh — ${view.product}`;
+  const issues = view.quick_summary.top_issues || [];
+  document.getElementById('summaryIssues').innerHTML = issues.length ? issues.map((issue, i) => `
+    <div class="insight"><div class="insight-num">${String(i + 1).padStart(2, '0')}</div>
+      <div><strong>${esc(issue.campaign_name)} · ${esc(issue.kpi_label)}</strong>
+      <span class="signal ${issue.level}" style="margin-left:6px;">${LEVEL_LABEL[issue.level] || issue.level}</span>
+      ${issue.reason ? '<p>' + esc(issue.reason) + '</p>' : ''}</div>
+    </div>
+  `).join('') : '<div class="summary-empty">Không có vấn đề nổi bật hôm nay.</div>';
+
+  const sugg = view.quick_summary.top_suggestions || [];
+  document.getElementById('summarySuggestions').innerHTML = sugg.length ? sugg.map((s, i) => `
+    <div class="insight"><div class="insight-num">${String(i + 1).padStart(2, '0')}</div>
+      <div><strong>${esc(s.team || "—")}</strong><p>${esc(s.noi_dung)}</p></div>
+    </div>
+  `).join('') : '<div class="summary-empty">Chưa có đề xuất ưu tiên cao.</div>';
+}
+
+function renderNarrative(view) {
+  document.getElementById('overviewText').textContent = view.overview_text || "Chưa có insight (LLM chưa được cấu hình).";
+  document.getElementById('costText').textContent = view.cost_text || "Chưa có nhận xét (LLM chưa được cấu hình).";
+
+  const mk = document.getElementById('insightMarketing');
+  mk.innerHTML = view.insight_marketing.length ? view.insight_marketing.map(x => `<li>${esc(x)}</li>`).join('') : '<li style="list-style:none;" class="muted">Chưa có insight.</li>';
+  const sl = document.getElementById('insightSale');
+  sl.innerHTML = view.insight_sale.length ? view.insight_sale.map(x => `<li>${esc(x)}</li>`).join('') : '<li style="list-style:none;" class="muted">Chưa có insight.</li>';
+
+  const sg = document.getElementById('suggestionsList');
+  sg.innerHTML = view.suggestions.length ? view.suggestions.map(s => `
+    <tr>
+      <td><span class="signal ${s.uu_tien}">${PRIORITY_LABEL[s.uu_tien] || s.uu_tien}</span></td>
+      <td class="channel"><span class="team-tag">${esc(s.team || "—")}</span></td>
+      <td>${esc(s.noi_dung)}</td>
+    </tr>`).join('') : '<tr><td colspan="3" class="muted">Chưa có đề xuất.</td></tr>';
+}
+
+function renderBottleneckList(view) {
+  const box = document.getElementById('bottleneckList');
+  const items = view.bottlenecks || [];
+  if (!items.length) {
+    box.innerHTML = '<p class="muted">Không có điểm nghẽn nào được LLM chọn diễn giải hôm nay.</p>';
+    return;
+  }
+  box.innerHTML = items.map(b => {
+    // LLM đôi khi viết tên KPI hơi khác nhãn gốc (bỏ phần trong ngoặc) nên so khớp theo phần trước dấu "("
+    const baseLabel = (s) => String(s || '').replace(/\s*\(.*$/, '').trim().toLowerCase();
+    const match = view.anomalies_table.find(a => a.campaign_name === b.campaign_name && baseLabel(a.kpi_label) === baseLabel(b.kpi_label));
+    const level = (match || {}).level || '';
+    return `
+    <div class="bottleneck-item ${level}">
+      <strong>${esc(b.campaign_name)} — ${esc(b.kpi_label)}</strong>
+      <p class="body-text" style="margin:4px 0 0;">${esc(b.mo_ta)}</p>
+      ${b.nguyen_nhan_kha_di ? `<p class="muted" style="margin-top:4px;">Nguyên nhân khả dĩ: ${esc(b.nguyen_nhan_kha_di)}</p>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// Tinh lai so lieu hanh trinh CHI tren cac kenh dang duoc chon: cong don cac
+// cot dang so, lay trung binh cong cac cot dang gio/ngay (nhat quan voi cach
+// Python tinh khi chua loc - trung binh cong tren cac kenh co du lieu).
+function filteredJourneyStats(view) {
+  const rows = view.journey_by_campaign.filter(r => isChannelSelected(r.campaign_name));
+  const sumCol = (col) => rows.reduce((s, r) => s + (r[col] || 0), 0);
+  const meanCol = (col) => {
+    const vals = rows.map(r => r[col]).filter(v => v != null);
+    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+  };
+  if (view.product === 'First Loan') {
+    const leadCount = view.funnel_by_campaign
+      .filter(r => isChannelSelected(r.campaign_name))
+      .reduce((s, r) => s + (r.steps.reach_count || 0), 0);
+    return {
+      lead_count: leadCount,
+      install_count: sumCol('install_count'),
+      phone_verified_count: sumCol('phone_verified_count'),
+      avg_lead_to_install_hours: meanCol('avg_lead_to_install_hours'),
+      avg_install_to_phone_hours: meanCol('avg_install_to_phone_hours'),
+      avg_phone_to_apply_hours: meanCol('avg_phone_to_apply_hours'),
+      has_install_data: sumCol('install_count') > 0,
+    };
+  }
+  return { avg_reloan_cadence_days: meanCol('avg_reloan_cadence_days'), has_install_data: false };
+}
+
+function renderJourneyStats(view) {
+  const box = document.getElementById('journeyStatsBox');
+  const row = document.getElementById('journeyStatRow');
+  const caption = document.getElementById('journeyCaption');
+  const js = filteredJourneyStats(view);
+  const tiles = [];
+
+  const filterNote = selectedChannels.size ? ' — đang lọc theo kênh đã chọn' : '';
+  const pctOf = (part, whole, label) => whole > 0 ? `${fmtNum(part / whole * 100, 0)}% so với ${label}` : '';
+  if (view.product === 'First Loan') {
+    tiles.push(['Lead (tương tác quảng cáo)', fmtInt(js.lead_count), '', '']);
+    if (js.has_install_data) {
+      tiles.push(['Cài app', fmtInt(js.install_count), '', pctOf(js.install_count, js.lead_count, 'lead')]);
+      tiles.push(['Xác thực SĐT', fmtInt(js.phone_verified_count), '', pctOf(js.phone_verified_count, js.install_count, 'lượt cài')]);
+      tiles.push(['TB Lead → Cài app', ...fmtDuration(js.avg_lead_to_install_hours), '']);
+      tiles.push(['TB Cài app → Xác thực SĐT', ...fmtDuration(js.avg_install_to_phone_hours), '']);
+      tiles.push(['TB Xác thực SĐT → Đăng ký vay', ...fmtDuration(js.avg_phone_to_apply_hours), '']);
+    }
+    caption.textContent = `Hành trình trước khi đăng ký vay (Lead → Cài app → Xác thực SĐT → Đăng ký), số liệu ngày ${fmtFullDate(DATA.as_of_date)}${filterNote}. Lead là mã phát sinh khi khách tương tác với quảng cáo, trước khi cài app. Số lượt cài app/xác thực tính theo ngày cài nên có thể đến từ lead của những ngày trước (tỷ lệ chỉ mang tính tham khảo). Phần Cài app/Xác thực SĐT là dữ liệu mô phỏng bổ sung, chưa có trong dữ liệu gốc của ngân hàng.`;
+  } else {
+    tiles.push(['TB chu kỳ tái vay', fmtNum(js.avg_reloan_cadence_days, 0), 'ngày kể từ khoản vay trước', '']);
+    caption.textContent = `Thời gian trung bình từ lần vay trước đến lần đăng ký tái vay này, tính trên các đơn đăng ký ngày ${fmtFullDate(DATA.as_of_date)}${filterNote}. Khách Re-loan đã có app và tài khoản từ khoản vay trước nên không qua bước cài app/xác thực SĐT.`;
+  }
+
+  box.hidden = tiles.length === 0;
+  row.innerHTML = tiles.map(([label, value, unit, note]) => `
+    <div class="stat-tile"><div class="stat-value">${value}${unit ? ' <span style="font-size:12.5px;font-weight:500;color:var(--muted);">' + unit + '</span>' : ''}</div><div class="stat-label">${label}</div>${note ? '<div class="stat-label" style="font-size:11px;">' + note + '</div>' : ''}</div>
+  `).join('');
+}
+
+function renderFunnelTable(view) {
+  const rows = view.funnel_by_campaign.filter(r => isChannelSelected(r.campaign_name));
+  document.getElementById('funnelTableBody').innerHTML = rows.map(row => `
+    <tr>
+      <td>${esc(row.campaign_name)}</td>
+      <td class="num">${fmtPct(row.dropoff_reach_to_register)}</td>
+      <td class="num">${fmtPct(row.dropoff_register_to_approve)}</td>
+    </tr>
+  `).join('');
+  document.getElementById('funnelCaption').textContent =
+    `Số liệu 1 ngày duy nhất: ${fmtFullDate(DATA.as_of_date)} (không cộng dồn nhiều ngày) — cộng dồn tất cả kênh${view.product ? ' của ' + view.product : ''}. Dữ liệu thật chỉ theo dõi được tới cấp kênh (không tách được từng campaign cụ thể sau bước đăng ký).`;
+}
+
+function renderCostRevenueTable(view) {
+  // Muc 4 KHONG ap dung bo loc kenh - luon hien thi toan bo kenh.
+  const rows = view.cost_chart;
+  document.getElementById('costRevenueTableBody').innerHTML = rows.map(d => `
+    <tr>
+      <td>${esc(d.campaign_name)}</td>
+      <td class="num">${fmtVnd(d.disbursed_amount)}</td>
+      <td class="num">${fmtVnd(d.ad_spend)}</td>
+      <td class="num">${d.revenue_to_cost_ratio == null ? '-' : d.revenue_to_cost_ratio + 'x'}</td>
+    </tr>
+  `).join('');
+}
+
+let selectedChannels = new Set(); // rong = "Tat ca"
+
+function isChannelSelected(channel) {
+  return selectedChannels.size === 0 || selectedChannels.has(channel);
+}
+
+function filteredFunnelTotals(view) {
+  const rows = view.funnel_by_campaign.filter(r => isChannelSelected(r.campaign_name));
+  return view.funnel_step_defs.map(def => ({
+    step: def.label,
+    count: rows.reduce((sum, r) => sum + (r.steps[def.col] || 0), 0),
+  }));
+}
+
+function renderFunnelChart(view) {
+  const steps = filteredFunnelTotals(view);
+  const maxCount = Math.max(1, ...steps.map(s => s.count));
+  const ranges = steps.map(s => [-s.count / 2, s.count / 2]);
+  const counts = steps.map(s => s.count);
+  const labels = steps.map(s => s.step);
+
+  if (funnelChart) { funnelChart.destroy(); }
+  funnelChart = new Chart(document.getElementById('funnelChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ data: ranges, backgroundColor: FUNNEL_RAMP, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85, _counts: counts }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => labels[ctx.dataIndex] + ': ' + counts[ctx.dataIndex].toLocaleString('vi-VN') } }
+      },
+      scales: {
+        x: { display: false, min: -maxCount / 2 * 1.05, max: maxCount / 2 * 1.05 },
+        y: { grid: { display: false }, ticks: { color: textSecondary, font: { size: 12.5 } } },
+      }
+    },
+    plugins: [funnelLabelPlugin],
+  });
+}
+
+let kpiCharts = [];
+
+function channelColor(channel, allChannels) {
+  const idx = allChannels.indexOf(channel);
+  return CATEGORICAL[idx % CATEGORICAL.length];
+}
+
+function fmtAxisDate(iso) {
+  const parts = iso.split('-');
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}` : iso;
+}
+function fmtFullDate(iso) {
+  const parts = iso.split('-');
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : iso;
+}
+
+function renderChannelFilter(view) {
+  const allChannels = view.campaigns_status.map(c => c.campaign_name);
+  const validSelected = new Set([...selectedChannels].filter(c => allChannels.includes(c)));
+  selectedChannels = validSelected;
+  const isAllActive = selectedChannels.size === 0;
+  const pills = [`<button class="filter-pill${isAllActive ? ' active' : ''}" data-channel="Tất cả">Tất cả</button>`]
+    .concat(allChannels.map(ch =>
+      `<button class="filter-pill${selectedChannels.has(ch) ? ' active' : ''}" data-channel="${esc(ch)}">${esc(ch)}</button>`
+    ));
+  document.getElementById('channelFilter').innerHTML = pills.join('');
+}
+
+function renderKpiCharts(view) {
+  kpiCharts.forEach(c => c.destroy());
+  kpiCharts = [];
+  const grid = document.getElementById('kpiChartsGrid');
+  const charts = view.kpi_trend_charts || [];
+  const allChannels = view.campaigns_status.map(c => c.campaign_name);
+
+  if (!charts.length) {
+    grid.innerHTML = '<p class="kpi-charts-empty">Không có KPI nào đang cảnh báo hôm nay.</p>';
+    return;
+  }
+
+  grid.innerHTML = charts.map((c, i) => `
+    <div class="kpi-chart-card">
+      ${c.stage ? `<div class="stage-tag">Bước ${esc(c.stage)}</div>` : ''}
+      <div class="kpi-chart-title">${esc(c.kpi_label)}</div>
+      <div class="chart-box"><canvas id="kpiChart${i}"></canvas></div>
+    </div>
+  `).join('');
+
+  // Định dạng trục/tooltip theo đơn vị: tiền dùng triệu đồng hoặc đồng nguyên, còn lại giữ số thường
+  const tickFmt = (unit) => unit === 'vnd_million' ? (v => fmtNum(v / 1e6, 0) + ' tr') : unit === 'vnd' ? (v => fmtInt(v)) : (v => v);
+  const tipFmt = (unit, v) => unit === 'vnd_million' ? fmtNum(v / 1e6, 1) + ' triệu đồng' : unit === 'vnd' ? fmtInt(v) + ' đ' : fmtNum(v, 2);
+
+  charts.forEach((c, i) => {
+    const series = selectedChannels.size === 0 ? c.series : c.series.filter(s => selectedChannels.has(s.channel));
+    const datasets = series.map(s => {
+      const color = channelColor(s.channel, allChannels);
+      return {
+        label: s.channel, data: s.values, borderColor: color, backgroundColor: color,
+        borderWidth: s.level !== 'normal' ? 2.5 : 1.5,
+        pointRadius: 0, tension: 0.15, spanGaps: true,
+      };
+    });
+    const chart = new Chart(document.getElementById(`kpiChart${i}`), {
+      type: 'line',
+      data: { labels: c.dates.map(fmtAxisDate), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: false },
+        plugins: {
+          legend: { display: series.length > 1 && series.length <= 6, position: 'bottom', labels: { color: textSecondary, boxWidth: 10, font: { size: 10.5 } } },
+          tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': ' + tipFmt(c.unit, ctx.raw) } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: textSecondary, maxRotation: 0, autoSkip: true, maxTicksLimit: 5, font: { size: 10.5 } } },
+          y: { grid: { color: gridline }, ticks: { color: textSecondary, font: { size: 10.5 }, callback: tickFmt(c.unit) } },
+        }
+      }
+    });
+    kpiCharts.push(chart);
+  });
+}
+
+// Bo loc kenh CHI anh huong Muc 2 (Hanh trinh) va Muc 3 (Diem nghen) - Muc 4
+// (Hieu qua chi phi) va khoi KPI dau trang luon hien thi toan bo kenh.
+document.getElementById('channelFilter').addEventListener('click', (e) => {
+  const btn = e.target.closest('.filter-pill');
+  if (!btn) return;
+  const channel = btn.dataset.channel;
+  if (channel === 'Tất cả') {
+    selectedChannels.clear();
+  } else if (selectedChannels.has(channel)) {
+    selectedChannels.delete(channel);
+  } else {
+    selectedChannels.add(channel);
+  }
+  const view = DATA.views[document.querySelector('.tab-btn.active').dataset.tab];
+  renderChannelFilter(view);
+  renderFunnelTable(view);
+  renderFunnelChart(view);
+  renderJourneyStats(view);
+  renderKpiCharts(view);
+});
+
+// Bo loc RIENG cua khoi the chi so dieu hanh dau trang - khong anh huong cac muc khac.
+document.getElementById('cardChannelFilter').addEventListener('click', (e) => {
+  const btn = e.target.closest('.filter-pill');
+  if (!btn) return;
+  const channel = btn.dataset.channel;
+  if (channel === 'Tất cả') {
+    cardChannels.clear();
+  } else if (cardChannels.has(channel)) {
+    cardChannels.delete(channel);
+  } else {
+    cardChannels.add(channel);
+  }
+  const view = DATA.views[document.querySelector('.tab-btn.active').dataset.tab];
+  renderCardFilter(view);
+  renderHeadlineKpis(view);
+});
+
+function renderCostChart(view) {
+  // Muc 4 KHONG ap dung bo loc kenh - luon hien thi toan bo kenh.
+  const rows = view.cost_chart;
+  const labels = rows.map(d => d.campaign_name);
+  const cpl = rows.map(d => d.cpl);
+  const cpa = rows.map(d => d.cpa);
+  if (costChart) { costChart.destroy(); }
+  costChart = new Chart(document.getElementById('costChart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'CPL (VNĐ/lead)', data: cpl, backgroundColor: '#12b8a6', borderRadius: 4 },
+      { label: 'CPA (VNĐ/khoản vay)', data: cpa, backgroundColor: '#d97706', borderRadius: 4 },
+    ] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { color: textSecondary } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: textSecondary } },
+        y: { grid: { color: gridline }, ticks: { color: textSecondary } },
+      }
+    }
+  });
+}
+
+function renderView(tabName) {
+  const view = DATA.views[tabName];
+  if (!view) return;
+  selectedChannels.clear();
+  cardChannels.clear();
+  renderChips(view);
+  renderCardFilter(view);
+  renderHeadlineKpis(view);
+  renderContributions(view);
+  renderSummary(view);
+  renderNarrative(view);
+  renderBottleneckList(view);
+  renderFunnelTable(view);
+  renderJourneyStats(view);
+  renderCostRevenueTable(view);
+  renderFunnelChart(view);
+  renderChannelFilter(view);
+  renderKpiCharts(view);
+  renderCostChart(view);
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
+}
+
+document.getElementById('tabBar').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (btn) renderView(btn.dataset.tab);
+});
+
+renderView(DATA.tab_labels[0]);
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.git/
+.gitignore
+.claude/
+scripts/
+*.md
+
+# Khoa bi mat va cau hinh rieng - khong dong goi vao anh Docker
+.env
+.env.*
+.greennode.json
+.agentbase/
+.agentbase-state.json
+*.credentials.json
+iam-credentials.json
+sheets-credentials.json
+local.db
+
+# File sinh ra khi chay, ban sao luu, ban tam
+data/latest_dashboard.html
+data/latest_insight.json
+data/preview_*.html
+data/google_sheet_cache.xlsx
+data/*.before_*.xlsx
+data/*_v2*.xlsx
+~$*
+*.tmp
+data/funnel_mock.xlsx
