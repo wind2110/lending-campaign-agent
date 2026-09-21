@@ -119,8 +119,6 @@
   .chart-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 2px; }
   .kpi-chart-card.alert-critical { border-color: var(--red); }
   .kpi-chart-card.alert-warning { border-color: var(--amber); }
-  .signal.ok { background: #eef8f5; color: var(--green); }
-  @media (prefers-color-scheme: dark) { .signal.ok { background: rgba(52,211,153,.12); } }
   .kpi-chart-card .chart-box { height: 190px; margin-top: 4px; }
   .kpi-charts-empty { color: var(--muted); font-size: 13px; margin-top: 10px; }
 
@@ -789,12 +787,13 @@ function renderKpiCharts(view) {
   };
   grid.innerHTML = charts.map((c, i) => {
     const a = alertOf(c);
-    const badge = a.level === 'ok' ? 'Bình thường' : `${LEVEL_LABEL[a.level]}: ${a.channels.join(', ')}`;
+    // Chỉ hiện nhãn khi có cảnh báo; biểu đồ bình thường không cần nhãn
+    const badgeHtml = a.level === 'ok' ? '' : `<span class="signal ${safeClass(a.level, ['critical', 'warning'])}">${esc(LEVEL_LABEL[a.level] + ': ' + a.channels.join(', '))}</span>`;
     return `
     <div class="kpi-chart-card${a.level === 'critical' ? ' alert-critical' : a.level === 'warning' ? ' alert-warning' : ''}">
       <div class="chart-head">
         ${c.stage ? `<div class="stage-tag">Bước ${esc(c.stage)}</div>` : '<div></div>'}
-        <span class="signal ${safeClass(a.level, ['critical', 'warning', 'ok'])}">${esc(badge)}</span>
+        ${badgeHtml}
       </div>
       <div class="kpi-chart-title">${esc(c.kpi_label)}</div>
       <div class="chart-box"><canvas id="kpiChart${i}"></canvas></div>
