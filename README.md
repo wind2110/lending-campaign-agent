@@ -112,16 +112,6 @@ Các điểm cần nhớ khi tạo Runtime:
 
 Chi tiết các bước xem Console AgentBase: https://aiplatform.console.vngcloud.vn/agent-runtime?tab=runtime
 
-## Công cụ trong `scripts/`
-
-Các script tạo và chỉnh dữ liệu mô phỏng. Chúng đọc và ghi file Excel nên chỉ dùng khi làm mới dữ liệu mẫu:
-
-| Script | Việc |
-|---|---|
-| `add_lead_cost_table.py` | Tạo tab `fact_lead_cost` khớp với chi phí lead trong `loan_application_pnl` |
-| `drop_loan_lead_id.py` | Bỏ cột `lead_id` khỏi `fact_loan`, nối khách qua `Customer_id` |
-| `rebuild_mock_funnel_order.py` | Script lịch sử: sắp lại thứ tự Lead → Cài app → Xác thực SĐT → Đăng ký (đọc từ bản sao lưu cũ, hiện chỉ để tham khảo) |
-
 ## Lưu ý bảo mật
 
 - Không commit `.env`, `.greennode.json`, `iam-credentials.json` hay bất kỳ khóa nào. Các file này đã nằm trong `.gitignore`.
