@@ -313,6 +313,13 @@ def prepare_dashboard_context(as_of_date, per_product: dict) -> dict:
 def render_dashboard_html(context: dict) -> str:
     env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=True)
     template = env.get_template("dashboard.html")
-    # </script> trong du lieu (vd: ten campaign) co the lam "vo" the script bao boc JSON
-    raw_json = json.dumps(context, ensure_ascii=False, default=str).replace("</", "<\\/")
+    # Du lieu (ten kenh tu Google Sheet, chu do LLM tra ve) nam trong the <script>. Chi thay "</"
+    # la KHONG du: chuoi "<!--<script>" van lam trinh duyet nuot mat the dong script va Dashboard
+    # bi trang. Escape han <, >, & thanh \uXXXX (van la JSON hop le, JSON.parse tra lai dung ky tu
+    # goc) cung 2 ky tu ngat dong U+2028/U+2029.
+    raw_json = (
+        json.dumps(context, ensure_ascii=False, default=str)
+        .replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+    )
     return template.render(**context, context_json=raw_json)

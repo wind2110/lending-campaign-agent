@@ -22,6 +22,7 @@ local.db
 # File sinh ra khi chay, ban sao luu, ban tam
 data/latest_dashboard.html
 data/latest_insight.json
+data/latest_chat_context.json
 data/preview_*.html
 data/google_sheet_cache.xlsx
 data/*.before_*.xlsx

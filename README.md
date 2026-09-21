@@ -20,13 +20,14 @@ Google Sheet / file Excel  →  tính chỉ số  →  so với 7 ngày gần nh
 ## Cấu trúc dự án
 
 ```
-main.py                     Cổng vào (FastAPI): /health, /, /api/refresh
+main.py                     Cổng vào (FastAPI): /health, /, /api/refresh, /api/ask
 app/
   data_source.py            Đọc dữ liệu (Google Sheet hoặc Excel), tổng hợp thành bảng ngày x kênh
   metrics.py                Tính chỉ số, mức bình thường, điểm bất thường, đóng góp theo kênh
   llm_insight.py            Prompt và gọi LLM (chỉ diễn giải số đã tính sẵn)
   dashboard.py              Chuẩn bị dữ liệu và dựng Dashboard
   templates/dashboard.html  Giao diện Dashboard (Chart.js)
+  chat.py                   Hỏi đáp với AI trên Dashboard (gói số liệu, giới hạn sử dụng)
   pipeline.py               Điều phối toàn bộ luồng chạy hàng ngày
   scheduler.py              Lịch chạy tự động
   notify.py                 Gửi email tóm tắt (tuỳ chọn)
@@ -69,7 +70,8 @@ Mở http://localhost:8080. Lần đầu chưa có Dashboard lưu sẵn nên age
 |---|---|
 | `GET /health` | Kiểm tra agent còn sống |
 | `GET /` | Xem Dashboard mới nhất |
-| `POST /api/refresh` | Chạy lại toàn bộ luồng (đọc dữ liệu → LLM → Dashboard → email) |
+| `POST /api/refresh` | Chạy lại toàn bộ luồng (đọc dữ liệu → LLM → Dashboard → email). **Bắt buộc** header `X-Refresh-Token` khớp `REFRESH_TOKEN`; chưa đặt `REFRESH_TOKEN` thì endpoint bị tắt. Mỗi lúc chỉ chạy 1 lượt, cách nhau tối thiểu 5 phút |
+| `POST /api/ask` | Hỏi đáp về số liệu/phân tích trên Dashboard (nút **Hỏi AI** góc phải dưới). Trả lời dựa trên gói số liệu do lần chạy gần nhất ghi ra (`data/latest_chat_context.json`), mỗi cuộc hỏi chỉ về 1 sản phẩm |
 
 ## Biến môi trường
 
@@ -82,6 +84,10 @@ Sao chép `.env.example` thành `.env`. **Không bao giờ đưa `.env` lên Git
 | `DATA_SOURCE_PATH` | Không | File Excel cục bộ (mặc định `data/full_schema_mock.xlsx`) |
 | `DAILY_CUTOFF_HOUR` | Không | Giờ chạy tự động, giờ Việt Nam (mặc định 8) |
 | `EMAIL_SENDER`, `EMAIL_APP_PASSWORD`, `EMAIL_RECIPIENTS` | Không | Gửi email tóm tắt qua Gmail (cần đủ cả 3 biến) |
+| `CHAT_MAX_PER_IP_PER_HOUR`, `CHAT_MAX_PER_DAY`, `CHAT_MAX_CONCURRENT` | Không | Giới hạn hỏi đáp, vì mỗi câu hỏi tốn phí LLM: số câu mỗi IP mỗi giờ (mặc định 30), tổng số câu mỗi ngày (300), số câu xử lý cùng lúc (3) |
+| `REFRESH_TOKEN` | Có, nếu muốn làm mới thủ công | Mật khẩu cho `POST /api/refresh`, dùng chuỗi ngẫu nhiên dài ≥ 32 ký tự (tạo bằng `python -c "import secrets; print(secrets.token_urlsafe(32))"`). Job 8h sáng không cần biến này |
+| `TRUSTED_PROXY_HOPS` | Không | Số lớp proxy phía trước agent (mặc định 1) để lấy đúng IP người dùng khi giới hạn tần suất; đặt 0 nếu không có proxy |
+| `REFRESH_MIN_INTERVAL_SECONDS` | Không | Khoảng cách tối thiểu giữa 2 lần làm mới (mặc định 300) |
 | `DASHBOARD_BASE_URL` | Không | Địa chỉ Dashboard dùng trong email |
 | `GREENNODE_*` | Chỉ khi chạy local | Trên AgentBase Runtime nền tảng tự cấp, **không** đặt khi deploy |
 
@@ -107,10 +113,22 @@ Các điểm cần nhớ khi tạo Runtime:
 - **Chỉ chạy 1 bản** (min = max = 1 replica) và không cho ngủ: lịch chạy nằm trong tiến trình, không có khóa phân tán nên chạy 2 bản sẽ chạy trùng job và gửi trùng email.
 - Chế độ mạng **PUBLIC**: agent cần ra internet để tải Google Sheet và gọi LLM.
 - Truyền biến môi trường bằng file env khi tạo Runtime (không có `.env` trong ảnh Docker). Đừng đưa các biến `GREENNODE_*` vào file này.
-- Ổ đĩa container không bền: sau mỗi lần deploy hoặc khởi động lại, Dashboard lưu sẵn mất. Nên gọi `POST /api/refresh` một lần sau khi deploy.
-- Hiện `/api/refresh` và Dashboard chưa có đăng nhập riêng trong code; cần bảo vệ ở tầng endpoint của nền tảng.
+- Ổ đĩa container không bền: sau mỗi lần deploy hoặc khởi động lại, Dashboard lưu sẵn mất. Chỉ cần mở Dashboard một lần (agent tự dựng lại), hoặc gọi `POST /api/refresh` kèm `X-Refresh-Token`.
+- Nhớ đặt `REFRESH_TOKEN` trong file env khi tạo/cập nhật Runtime; thiếu thì `/api/refresh` bị tắt.
+- Dashboard và `/api/ask` vẫn công khai (không đăng nhập). Code đã chặn lạm dụng bằng giới hạn tần suất, nhưng nếu dữ liệu là nội bộ thì cần bảo vệ ở tầng endpoint của nền tảng.
+- Container chạy bằng tài khoản thường (không phải root).
 
 Chi tiết các bước xem Console AgentBase: https://aiplatform.console.vngcloud.vn/agent-runtime?tab=runtime
+
+## Kiểm thử bảo mật
+
+Trước mỗi lần deploy, chạy bộ kiểm thử tự động (không gọi LLM thật, không tốn phí):
+
+```bash
+python scripts/security_test.py
+```
+
+Bộ kiểm thử kiểm tra: header bảo mật và CSP, tắt trang tài liệu API, xác thực và chống lạm dụng `/api/refresh`, giới hạn tần suất và kích thước của `/api/ask`, không lộ lỗi nội bộ, chống chèn mã (XSS) trong Dashboard và email, không lộ file, không có khóa trong Git, container không chạy root. Thoát với mã 1 nếu có kiểm tra nào thất bại.
 
 ## Lưu ý bảo mật
 

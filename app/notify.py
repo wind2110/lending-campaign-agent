@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import os
 import smtplib
+from html import escape
+from urllib.parse import urlparse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -17,12 +19,17 @@ def is_email_configured() -> bool:
 
 
 def build_email_html(as_of_date, llm_result: dict, dashboard_url: str) -> str:
+    # Moi gia tri chen vao HTML (chu do LLM viet, ten kenh tu Google Sheet, duong dan) deu duoc
+    # escape: khong ai chen duoc the/lien ket doc vao email gui cho lanh dao.
+    def e(v) -> str:
+        return escape(str(v if v is not None else ""), quote=True)
+
     critical = llm_result.get("critical_highlights") or []
     if critical:
         items = "".join(
-            f"<li style='margin-bottom:10px;'><strong>{c.get('campaign_name', '')}</strong>: "
-            f"{c.get('insight_1_cau', '')}<br>"
-            f"<span style='color:#52514e;'>Đề xuất: {c.get('de_xuat_1_cau', '')}</span></li>"
+            f"<li style='margin-bottom:10px;'><strong>{e(c.get('campaign_name', ''))}</strong>: "
+            f"{e(c.get('insight_1_cau', ''))}<br>"
+            f"<span style='color:#52514e;'>Đề xuất: {e(c.get('de_xuat_1_cau', ''))}</span></li>"
             for c in critical
         )
         critical_html = (
@@ -33,14 +40,16 @@ def build_email_html(as_of_date, llm_result: dict, dashboard_url: str) -> str:
         critical_html = "<p>Không có campaign nào ở mức cần lưu ý hôm nay.</p>"
 
     overview = llm_result.get("tong_quan") or "Chưa có insight (LLM chưa được cấu hình)."
+    # Chi cho phep lien ket http/https (chan javascript:, data:...)
+    safe_url = dashboard_url if urlparse(str(dashboard_url)).scheme in ("http", "https") else "#"
 
     return f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color:#0b0b0b;">
-      <h2>Tóm tắt Campaign Lending - {as_of_date}</h2>
-      <p>{overview}</p>
+      <h2>Tóm tắt Campaign Lending - {e(as_of_date)}</h2>
+      <p>{e(overview)}</p>
       {critical_html}
       <p style="margin-top: 24px;">
-        <a href="{dashboard_url}" style="background:#2a78d6;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
+        <a href="{e(safe_url)}" style="background:#2a78d6;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
           Xem dashboard đầy đủ
         </a>
       </p>

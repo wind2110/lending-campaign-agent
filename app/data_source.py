@@ -232,18 +232,28 @@ def aggregate_real_schema(path: str) -> pd.DataFrame:
     return out
 
 
+MAX_SHEET_BYTES = 50 * 1024 * 1024
+
+
 def download_google_sheet(sheet: str, dest: str = GOOGLE_SHEET_CACHE_PATH) -> str:
     """Tai ban .xlsx cua Google Sheet ve `dest` va tra ve duong dan. `sheet` la ID hoac ca duong link.
     Yeu cau Sheet bat chia se "Bat ky ai co duong lien ket" (quyen Nguoi xem) - khong can tai khoan ky thuat.
     Loi thi bao ro nguyen nhan (khong am tham dung du lieu cu de tranh hien so lieu cu ma khong ai biet)."""
     match = re.search(r"/d/([\w-]+)", sheet)
     sheet_id = match.group(1) if match else sheet.strip()
+    # ID Google Sheet chi gom chu/so/_/-. Kiem tra chat de chuoi la trong bien moi truong khong the
+    # chen them duong dan/tham so vao URL tai ve.
+    if not re.fullmatch(r"[A-Za-z0-9_-]{10,100}", sheet_id):
+        raise RuntimeError("GOOGLE_SHEET_ID khong hop le (chi gom chu, so, dau _ va -; hoac dan ca link Google Sheet).")
     request = urllib.request.Request(
         GOOGLE_SHEET_EXPORT_URL.format(sheet_id=sheet_id), headers={"User-Agent": "lending-campaign-agent"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=120) as response:
-            content = response.read()
+        # URL luon la https://docs.google.com/... (mau co dinh + ID da kiem tra o tren)
+        with urllib.request.urlopen(request, timeout=120) as response:  # nosec B310
+            content = response.read(MAX_SHEET_BYTES + 1)  # gioi han dung luong, tranh tai file khong lo vao RAM
+        if len(content) > MAX_SHEET_BYTES:
+            raise RuntimeError("File Google Sheet tai ve qua lon (>50MB).")
     except urllib.error.HTTPError as e:
         raise RuntimeError(
             f"Khong tai duoc Google Sheet (HTTP {e.code}). Kiem tra GOOGLE_SHEET_ID va da bat chia se "

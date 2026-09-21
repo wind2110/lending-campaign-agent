@@ -23,6 +23,7 @@ local.db
 # File sinh ra khi chay - tao lai duoc, khong luu vao repo
 data/latest_dashboard.html
 data/latest_insight.json
+data/latest_chat_context.json
 data/preview_*.html
 data/google_sheet_cache.xlsx
 
