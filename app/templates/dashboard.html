@@ -115,7 +115,12 @@
   .kpi-charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 12px; }
   .kpi-chart-card { border: 1px solid var(--line); border-radius: 13px; padding: 12px 14px 8px; background: var(--soft); }
   .kpi-chart-card .kpi-chart-title { font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
-  .stage-tag { font-size: 10.5px; font-weight: 800; color: var(--teal2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .stage-tag { font-size: 10.5px; font-weight: 800; color: var(--teal2); text-transform: uppercase; letter-spacing: .05em; }
+  .chart-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 2px; }
+  .kpi-chart-card.alert-critical { border-color: var(--red); }
+  .kpi-chart-card.alert-warning { border-color: var(--amber); }
+  .signal.ok { background: #eef8f5; color: var(--green); }
+  @media (prefers-color-scheme: dark) { .signal.ok { background: rgba(52,211,153,.12); } }
   .kpi-chart-card .chart-box { height: 190px; margin-top: 4px; }
   .kpi-charts-empty { color: var(--muted); font-size: 13px; margin-top: 10px; }
 
@@ -273,7 +278,7 @@
 
     <section class="panel">
       <h2><span class="step-no">3</span>Điểm nghẽn</h2>
-      <p class="muted">Mỗi biểu đồ là 1 KPI đang có cảnh báo hôm nay (riêng Doanh số giải ngân luôn hiển thị), mỗi đường là 1 kênh, theo dõi 30 ngày gần nhất.</p>
+      <p class="muted">Mỗi bước trong hành trình khách hàng luôn có 1 biểu đồ đại diện; chỉ số nào đang có kênh cần lưu ý/chú ý hôm nay được đánh dấu màu và bổ sung thêm. Mỗi đường là 1 kênh, theo dõi 30 ngày gần nhất.</p>
 
       <div class="filter-block">
         <div class="filter-row">
@@ -771,17 +776,30 @@ function renderKpiCharts(view) {
   const allChannels = view.campaigns_status.map(c => c.campaign_name);
 
   if (!charts.length) {
-    grid.innerHTML = '<p class="kpi-charts-empty">Không có KPI nào đang cảnh báo hôm nay.</p>';
+    grid.innerHTML = '<p class="kpi-charts-empty">Chưa có dữ liệu để vẽ biểu đồ.</p>';
     return;
   }
 
-  grid.innerHTML = charts.map((c, i) => `
-    <div class="kpi-chart-card">
-      ${c.stage ? `<div class="stage-tag">Bước ${esc(c.stage)}</div>` : ''}
+  // Mức cảnh báo của từng biểu đồ tính trên các kênh ĐANG HIỂN THỊ (theo bộ lọc kênh)
+  const alertOf = (c) => {
+    const visible = selectedChannels.size === 0 ? c.series : c.series.filter(s => selectedChannels.has(s.channel));
+    const hit = visible.filter(s => s.level === 'critical' || s.level === 'warning');
+    const level = hit.some(s => s.level === 'critical') ? 'critical' : hit.length ? 'warning' : 'ok';
+    return { level, channels: hit.map(s => s.channel) };
+  };
+  grid.innerHTML = charts.map((c, i) => {
+    const a = alertOf(c);
+    const badge = a.level === 'ok' ? 'Bình thường' : `${LEVEL_LABEL[a.level]}: ${a.channels.join(', ')}`;
+    return `
+    <div class="kpi-chart-card${a.level === 'critical' ? ' alert-critical' : a.level === 'warning' ? ' alert-warning' : ''}">
+      <div class="chart-head">
+        ${c.stage ? `<div class="stage-tag">Bước ${esc(c.stage)}</div>` : '<div></div>'}
+        <span class="signal ${safeClass(a.level, ['critical', 'warning', 'ok'])}">${esc(badge)}</span>
+      </div>
       <div class="kpi-chart-title">${esc(c.kpi_label)}</div>
       <div class="chart-box"><canvas id="kpiChart${i}"></canvas></div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   // Định dạng trục/tooltip theo đơn vị: tiền dùng triệu đồng hoặc đồng nguyên, còn lại giữ số thường
   const tickFmt = (unit) => unit === 'vnd_million' ? (v => fmtNum(v / 1e6, 0) + ' tr') : unit === 'vnd' ? (v => fmtInt(v)) : (v => v);

@@ -40,8 +40,16 @@ KPI_JOURNEY = [
 KPI_JOURNEY_INDEX = {kpi: i for i, (kpi, _) in enumerate(KPI_JOURNEY)}
 KPI_STAGE = dict(KPI_JOURNEY)
 
-# KPI luon co bieu do o Muc 3 du chua bi canh bao (ket qua cuoi cung cua hanh trinh)
-ALWAYS_CHART_KPIS = ["disbursed_amount"]
+# KPI LUON co bieu do o Muc 3 du chua bi canh bao: moi buoc cua hanh trinh 1 bieu do dai dien, de
+# ngay khoe manh (it/khong canh bao) nguoi xem van thay du Buoc 1 -> 5 thay vi bi "thieu dau".
+# KPI dang canh bao hom nay duoc THEM vao (toi da max_kpis) va danh dau noi bat tren giao dien.
+ALWAYS_CHART_KPIS = [
+    "reach_count",                # Buoc 1. Tiep can
+    "lead_to_registration_rate",  # Buoc 2. Dang ky
+    "approval_rate",              # Buoc 3. Duyet don
+    "disbursed_amount",           # Buoc 4. Giai ngan
+    "roi_outstanding",            # Buoc 5. Sau giai ngan
+]
 # Don vi hien thi truc/tooltip: "vnd" (dong, nguyen), "vnd_million" (trieu dong)
 KPI_UNIT = {"cpl": "vnd", "cpa": "vnd", "disbursed_amount": "vnd_million"}
 
@@ -115,14 +123,17 @@ def _cost_chart_data(funnel_summary_df) -> list[dict]:
 
 
 def _kpi_trend_charts(kpi_df, anomalies_df, as_of_date, max_kpis: int = 8, days: int = 30) -> list[dict]:
-    """Moi KPI dang co canh bao hom nay -> 1 bieu do rieng (cong them cac KPI
-    trong ALWAYS_CHART_KPIS), moi duong trong bieu do la 1 kenh (30 ngay gan
-    nhat). Gioi han max_kpis KPI canh bao (uu tien bad_z te nhat) de trang
-    khong bi qua tai. Filter theo kenh (Tat ca / tung kenh) duoc ap dung o
-    phia client (JS), du lieu goc tra ve du ca cho moi kenh."""
-    if anomalies_df.empty or kpi_df.empty:
+    """Moi buoc hanh trinh luon co 1 bieu do dai dien (ALWAYS_CHART_KPIS), cong them moi KPI dang
+    co canh bao hom nay (toi da max_kpis, uu tien bad_z te nhat). Moi duong trong bieu do la 1
+    kenh (30 ngay gan nhat); series cua kenh dang canh bao mang level critical/warning de giao dien
+    danh dau. Filter theo kenh (Tat ca / tung kenh) duoc ap dung o phia client (JS), du lieu goc
+    tra ve du ca cho moi kenh."""
+    if kpi_df.empty:
         return []
-    flagged = anomalies_df[anomalies_df["level"].isin(["critical", "warning"])].copy()
+    if anomalies_df.empty:
+        flagged = pd.DataFrame(columns=["kpi", "level", "bad_z", "campaign_name"])
+    else:
+        flagged = anomalies_df[anomalies_df["level"].isin(["critical", "warning"])].copy()
 
     kpi_worst = flagged.groupby("kpi")["bad_z"].max().sort_values(ascending=False)
     # Chon max_kpis KPI nghiem trong nhat + KPI luon hien, roi sap lai theo thu tu hanh trinh
@@ -135,7 +146,8 @@ def _kpi_trend_charts(kpi_df, anomalies_df, as_of_date, max_kpis: int = 8, days:
 
     charts = []
     for kpi in top_kpis:
-        if kpi not in window.columns:
+        # Bo qua KPI khong co du lieu nao trong khoang hien thi (vd chi so khong ap dung cho san pham nay)
+        if kpi not in window.columns or not pd.to_numeric(window[kpi], errors="coerce").notna().any():
             continue
         kpi_label = KPI_LABELS[kpi]
         kpi_type = KPI_DIRECTIONS[kpi]
